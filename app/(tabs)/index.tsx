@@ -1,78 +1,282 @@
 import React, { useState } from "react";
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, Button, StyleSheet, Modal, Image, TextInput, Switch } from "react-native";
+import { Formik } from 'formik';
+import * as Yup from 'yup';
 
-const historicalPlaces = [
-  { id: "1", name: "Колізей", image: "https://atlanttour.com.ua/wp-content/uploads/2023/10/photo_2023-10-16_16-01-37.jpg" },
-  { id: "2", name: "Велика Китайська стіна", image: "https://tse-tsikavo.com.ua/wp-content/uploads/2024/05/velyka-kytajska-stina-foto.jpg" },
-  { id: "3", name: "Ейфелева вежа", image: "https://upload.wikimedia.org/wikipedia/commons/a/a8/Tour_Eiffel_Wikimedia_Commons.jpg" },
-  { id: "4", name: "Стоунхендж", image: "https://upload.wikimedia.org/wikipedia/commons/3/3c/Stonehenge2007_07_30.jpg" },
-  { id: "5", name: "Тадж-Махал", image: "https://upload.wikimedia.org/wikipedia/commons/d/da/Taj-Mahal.jpg" },
-  { id: "6", name: "Мачу-Пікчу", image: "https://images.unian.net/photos/2020_12/1608126680-8618.jpg?0.4384594414666112" },
-  { id: "7", name: "Піраміди Гізи", image: "https://upload.wikimedia.org/wikipedia/commons/e/e3/Kheops-Pyramid.jpg" },
-  { id: "8", name: "Софійський собор", image: "https://24tv.ua/resources/photos/news/201812/1076010.jpg?v=1661276419000&w=768&h=432&fit=cover&output=webp&q=70" },
-  { id: "9", name: "Ангкор-Ват", image: "https://www.zagorye.ua/wp-content/uploads/2019/08/siemreap-7-tmb-1200x628xfill.jpg" },
-  { id: "10", name: "Чичен-Іца", image: "http://navkolosvitu.net.ua/wp-content/uploads/2014/05/chichen-itza-mexico-2009.jpg" }
+interface Place {
+  id: string;
+  name: string;
+  image: string;
+}
+
+const initialPlaces: Place[] = [
+  { id: '1', name: "Ейфелева вежа", image: "https://upload.wikimedia.org/wikipedia/commons/a/a8/Tour_Eiffel_Wikimedia_Commons.jpg" },
+  { id: '2', name: "Колізей", image: "https://upload.wikimedia.org/wikipedia/commons/d/de/Colosseo_2020.jpg" },
+  { id: '3', name: "Мачу-Пікчу", image: "https://upload.wikimedia.org/wikipedia/commons/e/eb/Machu_Picchu%2C_Peru.jpg" },
+  { id: '4', name: "Стоунхендж", image: "https://upload.wikimedia.org/wikipedia/commons/3/3c/Stonehenge2007_07_30.jpg" }
 ];
 
-const HistoricalList = () => (
-  <FlatList
-    data={historicalPlaces}
-    keyExtractor={(item) => item.id}
-    renderItem={({ item }) => (
-      <View style={styles.listItem}>
-        <Image source={{ uri: item.image }} style={styles.image} />
-        <Text style={styles.text}>{item.name}</Text>
-      </View>
-    )}
-  />
-);
+export default function HistoricalPlacesApp() {
+  const [screen, setScreen] = useState<string>("list");
+  const [places, setPlaces] = useState<Place[]>(initialPlaces);
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [menuVisible, setMenuVisible] = useState<boolean>(false);
+  const [theme, setTheme] = useState<boolean>(false);
+  const [fontSize, setFontSize] = useState<number>(16);
+  const [language, setLanguage] = useState<string>("uk");
 
-const SettingsScreen = ({ toggleTheme }) => (
-  <View style={styles.settingsContainer}>
-    <TouchableOpacity style={styles.button} onPress={toggleTheme}>
-      <Text style={styles.buttonText}>Змінити тему</Text>
-    </TouchableOpacity>
-  </View>
-);
+  const addPlace = (values: { name: string; image: string }, actions: any) => {
+    const newPlace: Place = { id: Date.now().toString(), name: values.name, image: values.image };
+    setPlaces([...places, newPlace]);
+    actions.resetForm();
+    setScreen("list");
+  };
 
-export default function App() {
-  const [screen, setScreen] = useState("list");
-  const [darkTheme, setDarkTheme] = useState(false);
+  const removePlace = (id: string) => {
+    setPlaces(places.filter(place => place.id !== id));
+  };
 
-  const toggleTheme = () => setDarkTheme(!darkTheme);
+  const toggleTheme = () => setTheme(!theme);
+  const increaseFontSize = () => setFontSize(prev => Math.min(prev + 2, 30));
+  const decreaseFontSize = () => setFontSize(prev => Math.max(prev - 2, 12));
+  const toggleLanguage = () => setLanguage(language === "uk" ? "en" : "uk");
 
   return (
-    <View style={[styles.container, darkTheme && styles.darkBackground]}>
-      <View style={styles.navbar}>
-        <TouchableOpacity
-          style={[styles.navButton, screen === "list" && styles.activeButton]}
-          onPress={() => setScreen("list")}
-        >
-          <Text style={styles.buttonText}>Список</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.navButton, screen === "settings" && styles.activeButton]}
-          onPress={() => setScreen("settings")}
-        >
-          <Text style={styles.buttonText}>Налаштування</Text>
-        </TouchableOpacity>
-      </View>
-      {screen === "list" ? <HistoricalList /> : <SettingsScreen toggleTheme={toggleTheme} />}
+    <View style={[styles.container, { backgroundColor: theme ? "#2c3e50" : "#f4f1eb" }]}>
+      {/* Кнопка меню */}
+      <TouchableOpacity style={styles.menuButton} onPress={() => setMenuVisible(!menuVisible)}>
+        <Text style={styles.menuButtonText}>
+          {language === "uk" ? "Меню" : "Menu"}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Виведення кнопок меню горизонтально */}
+      {menuVisible && (
+        <View style={styles.menu}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => setScreen("list")}>
+            <Text style={styles.menuText}>{language === "uk" ? "Список місць" : "Places List"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={() => setScreen("add")}>
+            <Text style={styles.menuText}>{language === "uk" ? "Додати місце" : "Add Place"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={() => setScreen("settings")}>
+            <Text style={styles.menuText}>{language === "uk" ? "Налаштування" : "Settings"}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Виведення списку місць */}
+      {screen === "list" && (
+        <View>
+          {places.map((place) => (
+            <TouchableOpacity key={place.id} onPress={() => { setSelectedPlace(place); setModalVisible(true); }}>
+              <View style={styles.item}>
+                <Image source={{ uri: place.image }} style={styles.image} />
+                <Text style={[styles.text, { fontSize, fontFamily: "sans-serif" }]}>{place.name}</Text>
+                <Button title="❌" onPress={() => removePlace(place.id)} />
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Додавання місця */}
+      {screen === "add" && (
+        <Formik
+        initialValues={{ name: "", image: "" }}
+        validationSchema={Yup.object({
+          name: Yup.string().required("Обов'язкове поле"),
+          image: Yup.string().url("Некоректний URL").required("Обов'язкове поле"),
+        })}
+        onSubmit={addPlace}
+      >
+        {({ handleChange, handleSubmit, values, errors }) => (
+          <View style={styles.form}>
+            <TextInput
+              placeholder={language === "uk" ? "Назва місця" : "Place Name"}
+              value={values.name}
+              onChangeText={handleChange("name")}
+              style={styles.input}
+            />
+            {errors.name && <Text style={styles.error}>{errors.name}</Text>}
+            <TextInput
+              placeholder={language === "uk" ? "URL зображення" : "Image URL"}
+              value={values.image}
+              onChangeText={handleChange("image")}
+              style={styles.input}
+            />
+            {errors.image && <Text style={styles.error}>{errors.image}</Text>}
+            <Button title={language === "uk" ? "Додати" : "Add"} onPress={() => handleSubmit()} />
+          </View>
+        )}
+      </Formik>
+      )}
+
+      {/* Налаштування */}
+      {screen === "settings" && (
+        <View style={styles.settingsContainer}>
+          <Text style={[styles.settingsTitle, { fontSize, fontFamily: "sans-serif" }]}>
+            {language === "uk" ? "Налаштування" : "Settings"}
+          </Text>
+
+          <View style={styles.setting}>
+            <Text style={styles.settingText}>
+              {language === "uk" ? "Зміна теми:" : "Change Theme:"}
+            </Text>
+            <Switch value={theme} onValueChange={toggleTheme} />
+          </View>
+
+          <View style={styles.setting}>
+            <Text style={styles.settingText}>
+              {language === "uk" ? "Зміна шрифтів:" : "Change Font Size:"}
+            </Text>
+            <View style={styles.fontSizeControls}>
+              <Button title="➕" onPress={increaseFontSize} />
+              <Text style={{ fontSize }}> {language === "uk" ? "Розмір шрифта" : "Font Size"}</Text>
+              <Button title="➖" onPress={decreaseFontSize} />
+            </View>
+          </View>
+
+          <View style={styles.setting}>
+            <Text style={styles.settingText}>
+              {language === "uk" ? "Мова інтерфейсу:" : "Interface Language:"}
+            </Text>
+            <View style={styles.languageButtonContainer}>
+              <Button title={language === "uk" ? "Англійська" : "Ukrainian"} onPress={toggleLanguage} />
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Модальне вікно */}
+      <Modal visible={modalVisible} transparent={true}>
+        <View style={styles.modal}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{selectedPlace?.name}</Text>
+            <Image source={{ uri: selectedPlace?.image }} style={styles.modalImage} />
+            <Button title={language === "uk" ? "Закрити" : "Close"} onPress={() => setModalVisible(false)} />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: 40, backgroundColor: "#f5e1c0" },
-  darkBackground: { backgroundColor: "#8b6f47" },
-  navbar: { flexDirection: "row", justifyContent: "space-around", padding: 10, backgroundColor: "#d2b48c" },
-  navButton: { padding: 10 },
-  activeButton: { backgroundColor: "#a67b5b" },
-  buttonText: { fontSize: 16 },
-  listItem: { flexDirection: "row", padding: 10, borderBottomWidth: 1, borderColor: "#b38b6d", backgroundColor: "#f8e5d0" },
-  image: { width: 100, height: 100, marginRight: 10, borderRadius: 10 },
-  text: { fontSize: 18, color: "#5a3e2b" },
-  settingsContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  button: { padding: 10, backgroundColor: "#d2a679", borderRadius: 5 },
+  container: {
+    flex: 1,
+    paddingTop: 40,
+  },
+  menuButton: {
+    backgroundColor: "#8e735b",
+    padding: 12,
+    borderRadius: 5,
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  menuButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 18,
+  },
+  menu: {
+    flexDirection: "row",
+    justifyContent: "space-evenly",
+    marginBottom: 20,
+  },
+  menuItem: {
+    backgroundColor: "#8e735b",
+    padding: 12,
+    borderRadius: 5,
+  },
+  menuText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  item: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 15,
+    marginVertical: 5,
+    backgroundColor: "#ffffff",
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    justifyContent: "space-between",
+  },
+  image: {
+    width: 60,
+    height: 60,
+    borderRadius: 10,
+    marginRight: 15,
+  },
+  text: {
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#333",
+  },
+  form: {
+    padding: 20,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#8e735b",
+    padding: 10,
+    marginBottom: 10,
+    borderRadius: 5,
+    backgroundColor: "#black",
+  },
+  error: {
+    color: "red",
+  },
+  modal: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalContent: {
+    backgroundColor: "white",
+    padding: 20,
+    borderRadius: 10,
+    width: 200,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  modalImage: {
+    width: 150,
+    height: 150,
+    marginVertical: 10,
+  },
+  settingsContainer: {
+    padding: 20,
+  },
+  settingsTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+  setting: {
+    marginBottom: 15,
+  },
+  settingText: {
+    fontSize: 18,
+    marginBottom: 10,
+  },
+  fontSizeControls: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  languageButtonContainer: {
+    alignItems: "flex-start",
+  },
 });
+
 
